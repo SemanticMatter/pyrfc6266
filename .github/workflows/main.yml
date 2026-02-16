@@ -1,13 +1,11 @@
 name: Tests
 
 on:
+  pull_request:
   push:
     branches: [ master ]
 
   workflow_dispatch:
-
-env:
-  VENV_NAME: .ci-venv
 
 # Only run a single complete workflow for a single branch at a time.
 # Cancel in-progress runs of the same workflow for the same branch.
@@ -19,7 +17,7 @@ concurrency:
 
 jobs:
   pytest:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
@@ -35,43 +33,12 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Randomizer
-        id: randomizer
-        run: |
-          # Create a unique name for the virtual environment
-          random_part="$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 13 | tr '[:upper:]' '[:lower:]')"
-
-          if [ -z "${random_part}" ]; then
-            echo "Error: Failed to generate random part for virtual environment name and docker names"
-            exit 1
-          fi
-
-          echo "random_part=${random_part}" >> $GITHUB_OUTPUT
-
-      - name: Setup virtual environment
-        id: venv
-        run: |
-          venv_name="${{ env.VENV_NAME }}-${{ steps.randomizer.outputs.random_part }}"
-
-          if [ -d ${venv_name} ]; then
-            echo "Virtual environment (folder: "${venv_name}") already exists"
-            exit 1
-          fi
-          python -m venv ${venv_name}
-
-          echo "venv_name=${venv_name}" >> $GITHUB_OUTPUT
-
       - name: Install dependencies
         run: |
-          source ${{ steps.venv.outputs.venv_name }}/bin/activate
           python -m pip install --upgrade pip
           pip install -U setuptools wheel
           pip install -U -e .[testing]
-          deactivate
 
       - name: Run tests
-        run: ${{ steps.venv.outputs.venv_name }}/bin/pytest -vv --color=yes --cov-report=
+        run: pytest -vv --color=yes --cov-report=
 
-      - name: Remove virtual environment
-        if: always()
-        run: rm -rf ${{ steps.venv.outputs.venv_name }}
