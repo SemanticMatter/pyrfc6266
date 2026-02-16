@@ -1,3 +1,5 @@
+"""Main module for pyrfc6266."""
+
 from __future__ import annotations
 
 import re
