@@ -10,7 +10,7 @@ from ._main import (
     secure_filename,
 )
 
-__version__ = "1000.0.2"
+__version__ = "1001.0.2"
 
 __all__ = (
     "ContentDisposition",
