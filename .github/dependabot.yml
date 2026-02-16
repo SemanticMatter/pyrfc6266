@@ -1,0 +1,40 @@
+version: 2
+
+updates:
+- package-ecosystem: github-actions
+  directory: "/"
+  schedule:
+    interval: daily
+    time: "03:34"
+  target-branch: master
+  labels:
+    - CI/CD
+    - skip-changelog
+    - priority/low
+  groups:
+    actions:
+      applies-to: "version-updates"
+      patterns: ["*"]
+    actions-security:
+      applies-to: "security-updates"
+      patterns: ["*"]
+
+- package-ecosystem: pip
+  directories:
+    - "/"
+    - "/.github/utils"
+  schedule:
+    interval: weekly
+    time: "03:06"
+  target-branch: master
+  labels:
+    - CI/CD
+    - skip-changelog
+    - priority/low
+  groups:
+    python:
+      applies-to: "version-updates"
+      patterns: ["*"]
+    python-security:
+      applies-to: "security-updates"
+      patterns: ["*"]
