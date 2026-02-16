@@ -6,10 +6,11 @@ updates:
   schedule:
     interval: daily
     time: "03:34"
-  target-branch: main
+  target-branch: master
   labels:
     - CI/CD
     - skip-changelog
+    - priority/low
   groups:
     actions:
       applies-to: "version-updates"
@@ -21,15 +22,15 @@ updates:
 - package-ecosystem: pip
   directories:
     - "/"
-    - "/docker"
     - "/.github/utils"
   schedule:
     interval: weekly
     time: "03:06"
-  target-branch: main
+  target-branch: master
   labels:
     - CI/CD
     - skip-changelog
+    - priority/low
   groups:
     python:
       applies-to: "version-updates"
