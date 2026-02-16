@@ -1,8 +1,8 @@
+from __future__ import annotations
+
 import re
-import typing
 import uuid
 from dataclasses import dataclass
-from typing import List, Tuple, Union
 from urllib.parse import unquote, urlparse
 
 from pyparsing import (
@@ -21,11 +21,11 @@ from pyparsing import (
 )
 
 __all__ = [
+    "ContentDisposition",
     "parse",
     "parse_filename",
-    "secure_filename",
     "requests_response_to_filename",
-    "ContentDisposition",
+    "secure_filename",
 ]
 
 
@@ -35,15 +35,11 @@ class ContentDisposition:
     value: str
 
 
-token_chars = (
-    "!#$%&'*+-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ^_`abcdefghijklmnopqrstuvwxyz|~"
-)
-token_chars_without_wildcard = (
-    "!#$%&'+-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ^_`abcdefghijklmnopqrstuvwxyz|~"
-)
+token_chars = "!#$%&'*+-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ^_`abcdefghijklmnopqrstuvwxyz|~"  # nosec
+token_chars_without_wildcard = "!#$%&'+-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ^_`abcdefghijklmnopqrstuvwxyz|~"  # nosec
 token = Word(token_chars)
 unencoded_token = Regex(
-    r"[%s]*[%s]" % (re.escape(token_chars), re.escape(token_chars_without_wildcard))
+    rf"[{re.escape(token_chars)}]*[{re.escape(token_chars_without_wildcard)}]"
 )
 value = token | QuotedString(
     quote_char='"', esc_quote='\\"', esc_char="\\", convert_whitespace_escapes=False
@@ -78,16 +74,18 @@ disposition_type = (
     CaselessLiteral("inline") | CaselessLiteral("attachment") | disp_ext_type
 )
 
-parser = disposition_type.set_results_name("type") + ZeroOrMore(
-    Literal(";") + disposition_parm
-) + Optional(";")
+parser = (
+    disposition_type.set_results_name("type")
+    + ZeroOrMore(Literal(";") + disposition_parm)
+    + Optional(";")
+)
 
 INVALID_ISO8859_1_CHARACTERS = set(
-    bytes(list(range(0, 32)) + list(range(127, 160))).decode("iso-8859-1")
+    bytes(list(range(32)) + list(range(127, 160))).decode("iso-8859-1")
 )
 
 
-def parse(header: str) -> Tuple[str, List[ContentDisposition]]:
+def parse(header: str) -> tuple[str, list[ContentDisposition]]:
     """Parse a Content-Disposition header into its components.
 
     Args:
@@ -102,31 +100,32 @@ def parse(header: str) -> Tuple[str, List[ContentDisposition]]:
     content_disposition_type = parse_result["type"].lower()
     all_content_disposition = []
     seen_parms = set()
-    for parm, value in zip(parse_result.get("parm", []), parse_result.get("value", [])):
-        parm = "".join(parm)
-        if parm in seen_parms:
-            raise ParseException(f"Multiple parms with same name found: {parm}")
-        seen_parms.add(parm)
-        parm = parm[:-1].lower()
-        if parm.endswith("*"):
+    for parm, value in zip(
+        parse_result.get("parm", []), parse_result.get("value", []), strict=False
+    ):
+        parm_str = "".join(parm)
+        if parm_str in seen_parms:
+            raise ParseException(f"Multiple parms with same name found: {parm_str}")
+        seen_parms.add(parm_str)
+        parm_str = parm_str[:-1].lower()
+        if parm_str.endswith("*"):
             parse_result_value = ext_value.parse_string(value, parse_all=True)
             if "encoding" not in parse_result_value:
                 continue
             encoding = parse_result_value["encoding"].lower()
             try:
-                value = unquote(
+                value_str = unquote(
                     "".join(parse_result_value["value"]),
                     encoding=encoding,
                     errors="strict",
                 )
-            except UnicodeDecodeError:
+            except UnicodeDecodeError as exc:
+                raise ParseException("Invalid encoding found") from exc
+            if encoding == "iso-8859-1" and (
+                set(value_str) & INVALID_ISO8859_1_CHARACTERS
+            ):  # Python should really do this by itself
                 raise ParseException("Invalid encoding found")
-            if encoding == "iso-8859-1":
-                if (
-                    set(value) & INVALID_ISO8859_1_CHARACTERS
-                ):  # Python should really do this by itself
-                    raise ParseException("Invalid encoding found")
-        all_content_disposition.append(ContentDisposition(parm, value))
+        all_content_disposition.append(ContentDisposition(parm_str, value_str))
 
     return content_disposition_type, all_content_disposition
 
@@ -143,7 +142,9 @@ def secure_filename(filename: str) -> str:
     return filename.replace("\\", "_").replace("/", "_")
 
 
-def parse_filename(header: str, enforce_content_disposition_type: bool = False) -> str:
+def parse_filename(
+    header: str, enforce_content_disposition_type: bool = False
+) -> str | None:
     """Returns a safe filename from a content-disposition header
 
     Args:
