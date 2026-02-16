@@ -108,6 +108,7 @@ def parse(header: str) -> tuple[str, list[ContentDisposition]]:
             raise ParseException(f"Multiple parms with same name found: {parm_str}")
         seen_parms.add(parm_str)
         parm_str = parm_str[:-1].lower()
+        value_str = value
         if parm_str.endswith("*"):
             parse_result_value = ext_value.parse_string(value, parse_all=True)
             if "encoding" not in parse_result_value:
